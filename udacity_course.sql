@@ -53,3 +53,16 @@ ON o.account_id = a.id;
 --CHAPTER 4 : AGGREGATION
 --4.27.1 DATE PART/TRUNC/ DOW
 --4.31.1 CASE WHEN THEN END AS/ WHEN THEN / ELSE END AS 
+
+WITH events AS (
+  SELECT DATE_TRUNC('day', occurred_at) AS day,
+          channel, 
+          COUNT(*) AS events
+  FROM web_events
+  GROUP BY day, channel) 
+
+SELECT channel, AVG(events) AS average_events
+FROM events
+GROUP BY channel
+ORDER BY average_events DESC ;
+
