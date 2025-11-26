@@ -50,9 +50,107 @@ ON a.sales_rep_id = s.id
 JOIN orders o
 ON o.account_id = a.id;
 
---CHAPTER 4 : AGGREGATION
---4.27.1 DATE PART/TRUNC/ DOW
+--CHAPTER 4 : AGGREGATION, total costs
+SELECT SUM(meal_cost * stocked_quantity) AS total_cost 
+FROM meals
+JOIN stock
+ ON meals.meal_id = stock.meal_id;
+--4.27.1 DATE PART/TRUNC/ DOW - calculate the costs by month
+SELECT
+  -- Calculate cost
+  DATE_TRUNC('month', stocking_date)::DATE AS delivr_month,
+  -- :: DATE means "convert this value to DATE type. Don't forget the single qquotation"
+  SUM(meal_cost * stocked_quantity) AS cost
+FROM meals
+JOIN stock ON meals.meal_id = stock.meal_id
+GROUP BY delivr_month
+ORDER BY delivr_month ASC;
+
+--declare a CTE named monthly_cost
+-- Declare a CTE named monthly_cost
+WITH monthly_cost AS (
+  SELECT
+    DATE_TRUNC('month', stocking_date)::DATE AS delivr_month,
+    SUM(meal_cost * stocked_quantity) AS cost
+  FROM meals
+  JOIN stock ON meals.meal_id = stock.meal_id
+  GROUP BY delivr_month)
+
+SELECT
+  -- Calculate the average monthly cost before September
+  AVG(cost)
+FROM monthly_cost
+WHERE monthly_cost.delivr_month < '2018-09-01';
+-- here please don't forget double single quote to indicate a date. 
+
+-- calculating profit 
+WITH revenue AS (
+  -- Calculate revenue per eatery
+  SELECT eatery,
+         SUM(meal_price * order_quantity) AS revenue
+    FROM meals
+    JOIN orders ON meals.meal_id = orders.meal_id
+   GROUP BY eatery),
+
+  cost AS (
+  -- Calculate cost per eatery
+  SELECT eatery,
+         SUM(meal_cost * stocked_quantity) AS cost
+    FROM meals
+    JOIN stock ON meals.meal_id = stock.meal_id
+   GROUP BY eatery)
+
+   -- Calculate profit per eatery
+   SELECT revenue.eatery,
+          SUM(revenue - cost) AS profit
+     FROM revenue
+     JOIN cost ON revenue.eatery = cost.eatery
+    GROUP BY revenue.eatery 
+    ORDER BY profit DESC;
+
+-- profit per month
+-- Set up the revenue CTE
+WITH revenue AS ( 
+	SELECT
+		DATE_TRUNC('month', order_date) :: DATE AS delivr_month,
+		SUM(meal_price * order_quantity) AS revenue
+	FROM meals
+	JOIN orders ON meals.meal_id = orders.meal_id
+	GROUP BY delivr_month),
+-- Set up the cost CTE
+  cost AS (
+ 	SELECT
+		DATE_TRUNC('month', stocking_date) :: DATE AS delivr_month,
+		SUM(meal_cost * stocked_quantity) AS cost
+	FROM meals
+    JOIN stock ON meals.meal_id = stock.meal_id
+	GROUP BY delivr_month)
+-- Calculate profit by joining the CTEs
+SELECT
+	revenue.delivr_month,
+	SUM(revenue - cost) AS profit
+FROM revenue 
+JOIN cost ON revenue.delivr_month = cost.delivr_month
+GROUP BY revenue.delivr_month
+ORDER BY revenue.delivr_month ASC;
+
 --4.31.1 CASE WHEN THEN END AS/ WHEN THEN / ELSE END AS 
+--- registratio counts per month
+WITH reg_dates AS (
+  SELECT
+    user_id,
+    MIN(order_date) AS reg_date
+  FROM orders
+  GROUP BY user_id)
+
+SELECT
+  -- Count the unique user IDs by registration month
+  DATE_TRUNC('month', reg_date) :: DATE AS delivr_month,
+  COUNT(DISTINCT user_id) AS regs
+FROM reg_dates
+GROUP BY delivr_month
+ORDER BY delivr_month ASC; 
+
 
 WITH events AS (
   SELECT DATE_TRUNC('day', occurred_at) AS day,
@@ -65,4 +163,15 @@ SELECT channel, AVG(events) AS average_events
 FROM events
 GROUP BY channel
 ORDER BY average_events DESC ;
+
+-- monthly active users(MAU)
+SELECT
+  -- Truncate the order date to the nearest month
+  DATE_TRUNC('month', order_date) :: DATE AS delivr_month,
+  -- Count the unique user IDs
+  COUNT(DISTINCT user_id) AS mau
+FROM orders
+GROUP BY delivr_month
+-- Order by month
+ORDER BY delivr_month ASC;
 
