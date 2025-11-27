@@ -10,11 +10,11 @@
 
 -- examples
 	-- 1. tell which project burns money fast: average monthly cost per project 
-WITH monthly_project_costs AS (
+WITH monthly_costs_sum AS (   ----first calculating the total sum of a project per month
   SELECT
     project_id,
     DATE_TRUNC('month', cost_date)::date AS month_start,
-    SUM(cost_amount) AS monthly_cost -- not AVG(cost_amount) because AVG(cost_amount) averages rows(January 500 rows, October 2 rows), not by months.
+    SUM(cost_amount) AS monthly_cost_total -- we use SUM to have 'one value per month', not AVG(cost_amount) because AVG(cost_amount) averages rows(if January 500 rows, October 2 rows then the denominator N becomes 502, months with many rows will dominate the average), not by months.
   FROM costs
   GROUP BY project_id, month_start  -- group by month and please also include project names and THEN will average the monthly totals separately
 )
@@ -22,7 +22,7 @@ WITH monthly_project_costs AS (
 SELECT
   project_id,
   AVG(monthly_cost) AS avg_cost_per_project
-FROM monthly_project_costs  -- please include temporary table(previous CTE) name here
+FROM monthly_costs_sum  -- please include temporary table(previous CTE) name here
 GROUP BY project_id
 ORDER BY avg_cost_per_project DESC;
 
