@@ -1,25 +1,32 @@
--- First CTE: organize all costs by month
--- Second CTE: calculate one clean number(average)
+-- IF you want to :
+	-- 1. tell which project burns money fast
+    -- 2. design client segmentation(Free, Basic, Premium)
+	-- 3. know the monthly active user(MAU)
+	-- 4. evaluate monthly performance by registration count per month
+    -- 5. see which marketing channels are actually working, detect dying channels, and forecast future traffic
+-- THEN use average cost CTE
+	-- First CTE: organize all costs by month
+	-- Second CTE: calculate one clean number(average)
 
--- average monthly cost per project(CTE only) : This tells you which project burns money fast.
+-- examples
+	-- 1. tell which project burns money fast: average monthly cost per project 
 WITH monthly_project_costs AS (
   SELECT
     project_id,
     DATE_TRUNC('month', cost_date)::date AS month_start,
-    SUM(cost_amount) AS monthly_cost -- not AVG(cost_amount) because AVG(cost_amount) averages rows(January 500 rows, October 2 rows), not months.
+    SUM(cost_amount) AS monthly_cost -- not AVG(cost_amount) because AVG(cost_amount) averages rows(January 500 rows, October 2 rows), not by months.
   FROM costs
-  GROUP BY project_id, month_start  -- group by month and project names FIRST and THEN average the monthly totals next separately
+  GROUP BY project_id, month_start  -- group by month and please also include project names and THEN will average the monthly totals separately
 )
 
 SELECT
   project_id,
   AVG(monthly_cost) AS avg_cost_per_project
-FROM monthly_project_costs
+FROM monthly_project_costs  -- please include temporary table(previous CTE) name here
 GROUP BY project_id
 ORDER BY avg_cost_per_project DESC;
 
--- average cost per user(CTE only) : client segmentation(Free, Basic, VIP). If our system costs €20/user to operate(resolving tickets, support calls, etc), but we only charge €10/user, we’re losing money every single month.
-
+  -- 2. design client segmentation(Free, Basic, Premium). If our system costs €20/user to operate(resolving tickets, support calls, etc), but we only charge €10/user, we’re losing money every single month.
 WITH monthly_user_costs AS (
   SELECT
     user_id,
@@ -36,18 +43,15 @@ FROM monthly_user_costs
 GROUP BY user_id
 ORDER BY avg_cost_per_user DESC;
 
--- monthly active users(MAU)
+  -- 3. know the monthly active user(MAU) : bonus coupon distribution
 SELECT
-  -- Truncate the order date to the nearest month
-  DATE_TRUNC('month', order_date) :: DATE AS delivr_month,
-  -- Count the unique user IDs
-  COUNT(DISTINCT user_id) AS mau
+  DATE_TRUNC('month', order_date) :: DATE AS delivr_month,  -- Truncate the order date to the nearest month
+  COUNT(DISTINCT user_id) AS mau -- Count the unique user IDs
 FROM orders
 GROUP BY delivr_month
--- Order by month
-ORDER BY delivr_month ASC;
+ORDER BY delivr_month ASC; -- Order by month
 
--- registration counts per month
+  -- 4. evaluate monthly performance by registration count per month
 WITH reg_dates AS (
   SELECT
     user_id,
@@ -57,12 +61,12 @@ WITH reg_dates AS (
 
 SELECT
   DATE_TRUNC('month', reg_date) :: DATE AS delivr_month,
-  COUNT(DISTINCT user_id) AS regs
+  COUNT(DISTINCT user_id) AS regs -- Count the unique user IDs by registration month
 FROM reg_dates
 GROUP BY delivr_month
 ORDER BY delivr_month ASC; 
 
--- Count the unique user IDs by registration month
+-- 5. to see which marketing channels are actually working and detect dying channels and forecast future traffic
 WITH events AS (
   SELECT DATE_TRUNC('day', occurred_at) AS day,
           channel, 
@@ -74,44 +78,3 @@ SELECT channel, AVG(events) AS average_events
 FROM events
 GROUP BY channel
 ORDER BY average_events DESC ;
-
--- profit per month (revenue - cost)
--- Set up the revenue CTE
-WITH revenue AS ( 
-	SELECT
-		DATE_TRUNC('month', order_date) :: DATE AS delivr_month,
-		SUM(meal_price * order_quantity) AS revenue
-	FROM meals
-	JOIN orders ON meals.meal_id = orders.meal_id
-	GROUP BY delivr_month),
--- Set up the cost CTE
-  cost AS (
- 	SELECT
-		DATE_TRUNC('month', stocking_date) :: DATE AS delivr_month,
-		SUM(meal_cost * stocked_quantity) AS cost
-	FROM meals
-    JOIN stock ON meals.meal_id = stock.meal_id
-	GROUP BY delivr_month)
--- Calculate profit by joining the CTEs
-SELECT
-	revenue.delivr_month,
-	SUM(revenue - cost) AS profit
-FROM revenue 
-JOIN cost ON revenue.delivr_month = cost.delivr_month
-GROUP BY revenue.delivr_month
-ORDER BY revenue.delivr_month ASC;
-
--- average monthly cost before September
--- step 1: declare a CTE named monthly_cost
-WITH monthly_cost AS (
-  SELECT
-    DATE_TRUNC('month', stocking_date)::DATE AS delivr_month,
-    SUM(meal_cost * stocked_quantity) AS cost
-  FROM meals
-  JOIN stock ON meals.meal_id = stock.meal_id
-  GROUP BY delivr_month)
---step 2: calculate the average monthly cost before September
-SELECT
-  AVG(cost)
-FROM monthly_cost
-WHERE monthly_cost.delivr_month < '2018-09-01' -- here please don't forget double single quote to indicate a date. 
