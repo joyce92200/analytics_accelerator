@@ -1,0 +1,17 @@
+-- revenue per customer
+-- revenue per week
+-- profit by eatery
+-- profit per month
+-- registrations by month
+-- monthly active users(MAU)
+-- registrations running total
+-- MAU monitor I
+-- MAU monitor II
+-- MAU monitor III
+-- Order growth rate
+-- retention rate
+-- Average Revenue Per User(ARPU) by month
+-- APRU by user ID
+-- APRU per week to see whether APRU has increased over time
+-- average orders per user
+-- bucketing using CASE expression : customized histograms to visualize the frequencies of each value in a dataset
